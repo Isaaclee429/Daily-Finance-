@@ -35,9 +35,15 @@ def get_gold_rsi():
     df = yf.download("GC=F", period="30d", interval="1d")
     if df.empty or "Close" not in df.columns:
         return pd.DataFrame()
-    df["RSI"] = ta.momentum.RSIIndicator(df["Close"]).rsi()
+    
+    df = df.dropna(subset=["Close"])  # 確保 Close 沒有 NaN
+    if df.empty:
+        return pd.DataFrame()
+    
+    df["RSI"] = ta.momentum.RSIIndicator(close=df["Close"]).rsi()
     df = df.dropna(subset=["RSI"])
     return df
+
 
 gold_df = get_gold_rsi()
 if gold_df.empty:
