@@ -1,4 +1,4 @@
-# global_market_news_app.py（Investing 改為 RSS + 顯示連結）
+# global_market_news_app.py（加上新聞內容簡要摘要）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -21,11 +21,14 @@ def get_reuters_headlines():
         headlines = []
         for article in articles[:5]:
             h = article.find(['h3', 'h2'])
+            p = article.find('p')
             if h and h.text.strip():
-                headlines.append({"title": h.text.strip(), "link": url})
+                title = h.text.strip()
+                summary = p.text.strip() if p else "（此新聞無內文摘要）"
+                headlines.append({"title": title, "link": url, "content": summary})
         return headlines
     except:
-        return [{"title": "⚠️ 無法擷取 Reuters 世界新聞", "link": ""}]
+        return [{"title": "⚠️ 無法擷取 Reuters 世界新聞", "link": "", "content": ""}]
 
 # Bloomberg 新聞擷取
 @st.cache_data
@@ -46,10 +49,10 @@ def get_bloomberg_headlines():
                 not any(x in title.lower() for x in ["photo", "bloomberg", "getty", "video", "/live/"])
             ):
                 full_url = href if href.startswith("http") else f"https://www.bloomberg.com{href}"
-                titles.append({"title": title, "link": full_url})
-        return titles[:5] if titles else [{"title": "⚠️ Bloomberg 無標題", "link": ""}]
+                titles.append({"title": title, "link": full_url, "content": "（無法擷取 Bloomberg 內文）"})
+        return titles[:5] if titles else [{"title": "⚠️ Bloomberg 無標題", "link": "", "content": ""}]
     except:
-        return [{"title": "⚠️ 無法擷取 Bloomberg 新聞", "link": ""}]
+        return [{"title": "⚠️ 無法擷取 Bloomberg 新聞", "link": "", "content": ""}]
 
 # Investing RSS 擷取
 @st.cache_data
@@ -57,11 +60,11 @@ def get_investing_rss():
     try:
         feed = feedparser.parse("https://www.investing.com/rss/news_25.rss")
         entries = feed.entries[:5]
-        return [{"title": e.title, "link": e.link} for e in entries]
+        return [{"title": e.title, "link": e.link, "content": e.summary if hasattr(e, "summary") else "（無摘要）"} for e in entries]
     except:
-        return [{"title": "⚠️ 無法擷取 Investing.com RSS", "link": ""}]
+        return [{"title": "⚠️ 無法擷取 Investing.com RSS", "link": "", "content": ""}]
 
-# 分析標籤與摘要
+# 標籤與摘要
 
 def analyze_headline(headline):
     headline_lower = headline.lower()
@@ -85,17 +88,17 @@ def analyze_headline(headline):
         summary = "新聞與金融市場無直接關聯，但可觀察背景發展。"
     return tag, summary
 
-# 顯示區塊
-
+# 顯示新聞清單
 def display_news(source_title, news_list):
     st.subheader(f"📰 {source_title}")
     for i, item in enumerate(news_list, 1):
-        tag, summary = analyze_headline(item['title'])
+        tag, market_summary = analyze_headline(item['title'])
         st.markdown(f"**{i}. [{item['title']}]({item['link']})**  {tag}")
-        st.markdown(f"📌 {summary}")
+        st.markdown(f"📌 市場影響摘要：{market_summary}")
+        st.markdown(f"📝 新聞內容摘要：{item['content']}")
         st.markdown("---")
 
-# 顯示各來源新聞
+# 顯示所有來源
 display_news("Reuters 國際新聞", get_reuters_headlines())
 display_news("Bloomberg 焦點新聞", get_bloomberg_headlines())
 display_news("Investing.com RSS 新聞", get_investing_rss())
