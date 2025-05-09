@@ -1,17 +1,13 @@
-# daily_finance_gold_rsi_app.py（最穩定版修正）
+# daily_finance_news_app.py（僅保留新聞功能）
 import streamlit as st
-import yfinance as yf
-import pandas as pd
-import ta
-from datetime import date
 import requests
 from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="每日財經新聞 + 黃金 RSI 報告", layout="wide")
-st.title("📊 每日財經新聞 + 黃金 RSI 報告")
+st.set_page_config(page_title="每日財經新聞快報", layout="wide")
+st.title("📊 每日財經新聞快報")
 
-# 1. 擷取財經新聞
 st.header("📰 今日重要財經新聞")
+
 @st.cache_data
 def get_financial_news():
     url = "https://www.reuters.com/finance/"
@@ -27,36 +23,3 @@ def get_financial_news():
 news_list = get_financial_news()
 for idx, news in enumerate(news_list, 1):
     st.markdown(f"**{idx}.** {news}")
-
-# 2. 黃金 RSI 報告
-st.header("💰 黃金 RSI 每日分析 (GC=F)")
-@st.cache_data
-def get_gold_rsi():
-    df = yf.download("GC=F", period="30d", interval="1d")
-
-    if df.empty or "Close" not in df.columns:
-        return pd.DataFrame()
-
-    try:
-        df = df.dropna(subset=["Close"])
-        rsi_indicator = ta.momentum.RSIIndicator(close=df["Close"])
-        df["RSI"] = rsi_indicator.rsi()
-        df.dropna(subset=["RSI"], inplace=True)
-        return df
-    except Exception as e:
-        return pd.DataFrame()
-
-gold_df = get_gold_rsi()
-if gold_df.empty:
-    st.error("❌ 無法取得黃金 RSI 資料，可能是來源斷線或格式異常。")
-    st.stop()
-
-# 顯示當日 RSI 值與價格
-today_rsi = gold_df["RSI"].iloc[-1]
-today_price = gold_df["Close"].iloc[-1]
-
-st.metric("最新黃金價格", f"${today_price:.2f}")
-st.metric("今日 RSI 值", f"{today_rsi:.2f}")
-
-st.subheader("📈 RSI 走勢圖 (30日)")
-st.line_chart(gold_df[["RSI"]])
