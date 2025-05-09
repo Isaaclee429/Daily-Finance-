@@ -1,4 +1,4 @@
-# global_market_news_app.py（Yahoo 移除 + 改抓 Investing.com）
+# global_market_news_app.py（修正 Bloomberg 過濾圖說 + Investing 改用經濟新聞頁）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +8,7 @@ st.set_page_config(page_title="全球財經頭條與市場影響快報", layout=
 st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
 st.markdown(f"🗓️ 今日日期：{datetime.today().strftime('%Y-%m-%d')}")
 
-# Reuters 新聞擷取
+# Reuters 新聞擷取（保持不變）
 @st.cache_data
 def get_reuters_headlines():
     try:
@@ -26,7 +26,7 @@ def get_reuters_headlines():
     except:
         return ["⚠️ 無法擷取 Reuters 世界新聞"]
 
-# Bloomberg 新聞擷取
+# 修正版 Bloomberg 新聞擷取（過濾圖說與署名）
 @st.cache_data
 def get_bloomberg_headlines():
     try:
@@ -39,17 +39,21 @@ def get_bloomberg_headlines():
         for a in articles:
             title = a.get_text().strip()
             href = a['href']
-            if "/news" in href and 20 < len(title) < 150 and title not in titles:
+            if (
+                "/news" in href and
+                20 < len(title) < 150 and
+                not any(x in title.lower() for x in ["photo", "bloomberg", "getty", "video", "/live/"])
+            ):
                 titles.append(title)
         return titles[:5] if titles else ["⚠️ Bloomberg 無標題"]
     except:
         return ["⚠️ 無法擷取 Bloomberg 新聞"]
 
-# Investing.com 新聞擷取
+# 改版 Investing.com 經濟新聞擷取（非動態頁）
 @st.cache_data
 def get_investing_headlines():
     try:
-        url = "https://www.investing.com/news/"
+        url = "https://www.investing.com/news/economy"
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -59,7 +63,7 @@ def get_investing_headlines():
     except:
         return ["⚠️ 無法擷取 Investing.com 新聞"]
 
-# 標籤與摘要生成
+# 分析標籤與摘要
 
 def analyze_headline(headline):
     headline_lower = headline.lower()
@@ -99,8 +103,8 @@ for i, h in enumerate(get_bloomberg_headlines(), 1):
     st.markdown(f"📌 {summary}")
     st.markdown("---")
 
-# 顯示 Investing.com
-st.subheader("📰 Investing.com 新聞")
+# 顯示 Investing.com（修正後穩定版）
+st.subheader("📰 Investing.com 經濟新聞")
 for i, h in enumerate(get_investing_headlines(), 1):
     tag, summary = analyze_headline(h)
     st.markdown(f"**{i}. {h}**  {tag}")
