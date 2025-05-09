@@ -1,4 +1,4 @@
-# daily_finance_gold_rsi_app.py
+# daily_finance_gold_rsi_app.py（最穩定版）
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -35,25 +35,27 @@ def get_gold_rsi():
     df = yf.download("GC=F", period="30d", interval="1d")
     if df.empty or "Close" not in df.columns:
         return pd.DataFrame()
-    
-    df = df.dropna(subset=["Close"])  # 確保 Close 沒有 NaN
-    if df.empty:
-        return pd.DataFrame()
-    
-    df["RSI"] = ta.momentum.RSIIndicator(close=df["Close"]).rsi()
-    df = df.dropna(subset=["RSI"])
-    return df
 
+    close_series = df["Close"].dropna()
+    if close_series.empty:
+        return pd.DataFrame()
+
+    rsi = ta.momentum.RSIIndicator(close=close_series).rsi()
+    df = df.loc[close_series.index]
+    df["RSI"] = rsi
+    return df.dropna(subset=["RSI"])
 
 gold_df = get_gold_rsi()
 if gold_df.empty:
-    st.error("❌ 無法取得黃金價格資料")
-else:
-    today_rsi = gold_df["RSI"].iloc[-1]
-    today_price = gold_df["Close"].iloc[-1]
-    st.metric("最新黃金價格", f"${today_price:.2f}")
-    st.metric("今日 RSI 值", f"{today_rsi:.2f}")
+    st.error("❌ 無法取得黃金 RSI 資料（來源可能暫時中斷）")
+    st.stop()
 
-    st.subheader("📈 RSI 走勢圖 (30日)")
-    st.line_chart(gold_df[["RSI"]])
-# Daily-Finance-
+# 顯示當日 RSI 值與價格
+today_rsi = gold_df["RSI"].iloc[-1]
+today_price = gold_df["Close"].iloc[-1]
+
+st.metric("最新黃金價格", f"${today_price:.2f}")
+st.metric("今日 RSI 值", f"{today_rsi:.2f}")
+
+st.subheader("📈 RSI 走勢圖 (30日)")
+st.line_chart(gold_df[["RSI"]])
