@@ -1,10 +1,12 @@
-# global_market_news_app.py（整合 Bloomberg 並加入 AI 風格摘要）
+# global_market_news_app.py（加上日期顯示 + 加入 Yahoo Finance）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 st.set_page_config(page_title="全球財經頭條與市場影響快報", layout="wide")
 st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
+st.markdown(f"🗓️ 今日日期：{datetime.today().strftime('%Y-%m-%d')}")
 
 # Reuters 新聞擷取
 @st.cache_data
@@ -43,7 +45,21 @@ def get_bloomberg_headlines():
     except:
         return ["⚠️ 無法擷取 Bloomberg 新聞"]
 
-# 簡易標籤 + 模擬 AI 摘要
+# Yahoo Finance 新聞擷取
+@st.cache_data
+def get_yahoo_headlines():
+    try:
+        url = "https://finance.yahoo.com"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.find_all('h3')
+        headlines = [i.get_text().strip() for i in items if len(i.get_text().strip()) > 20]
+        return headlines[:5]
+    except:
+        return ["⚠️ 無法擷取 Yahoo Finance 新聞"]
+
+# 簡易標籤 + AI 風格摘要
 
 def analyze_headline(headline):
     headline_lower = headline.lower()
@@ -65,22 +81,4 @@ def analyze_headline(headline):
     else:
         tag = ""
         summary = "一般性國際新聞，目前尚無明確金融市場連結。"
-    return tag, summary
-
-# 顯示 Reuters
-st.subheader("📰 Reuters 國際新聞")
-reuters_news = get_reuters_headlines()
-for i, h in enumerate(reuters_news, 1):
-    tag, summary = analyze_headline(h)
-    st.markdown(f"**{i}. {h}**  {tag if tag else ''}")
-    st.markdown(f"📌 {summary}")
-    st.markdown("---")
-
-# 顯示 Bloomberg
-st.subheader("📰 Bloomberg 焦點新聞")
-bloomberg_news = get_bloomberg_headlines()
-for i, h in enumerate(bloomberg_news, 1):
-    tag, summary = analyze_headline(h)
-    st.markdown(f"**{i}. {h}**  {tag if tag else ''}")
-    st.markdown(f"📌 {summary}")
-    st.markdown("---")
+    return
