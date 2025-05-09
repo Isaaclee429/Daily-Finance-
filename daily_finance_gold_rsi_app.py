@@ -1,4 +1,4 @@
-# global_market_news_app.py（加上日期顯示 + 加入 Yahoo Finance）
+# global_market_news_app.py（Yahoo + Bloomberg 修正後，保證摘要顯示）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +8,7 @@ st.set_page_config(page_title="全球財經頭條與市場影響快報", layout=
 st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
 st.markdown(f"🗓️ 今日日期：{datetime.today().strftime('%Y-%m-%d')}")
 
-# Reuters 新聞擷取
+# Reuters 新聞擷取（保持不變）
 @st.cache_data
 def get_reuters_headlines():
     try:
@@ -26,7 +26,7 @@ def get_reuters_headlines():
     except:
         return ["⚠️ 無法擷取 Reuters 世界新聞"]
 
-# Bloomberg 新聞擷取
+# Bloomberg 新聞擷取（修正條件）
 @st.cache_data
 def get_bloomberg_headlines():
     try:
@@ -39,13 +39,13 @@ def get_bloomberg_headlines():
         for a in articles:
             title = a.get_text().strip()
             href = a['href']
-            if len(title) > 25 and "/news" in href and title not in titles:
+            if "/news" in href and 20 < len(title) < 150 and title not in titles:
                 titles.append(title)
-        return titles[:5]
+        return titles[:5] if titles else ["⚠️ Bloomberg 無標題"]
     except:
         return ["⚠️ 無法擷取 Bloomberg 新聞"]
 
-# Yahoo Finance 新聞擷取
+# Yahoo Finance 新聞擷取（重寫選擇條件）
 @st.cache_data
 def get_yahoo_headlines():
     try:
@@ -53,14 +53,17 @@ def get_yahoo_headlines():
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        items = soup.find_all('h3')
-        headlines = [i.get_text().strip() for i in items if len(i.get_text().strip()) > 20]
-        return headlines[:5]
+        items = soup.select("a.js-content-viewer")
+        headlines = []
+        for item in items:
+            text = item.get_text().strip()
+            if 20 < len(text) < 150:
+                headlines.append(text)
+        return headlines[:5] if headlines else ["⚠️ Yahoo 無標題"]
     except:
         return ["⚠️ 無法擷取 Yahoo Finance 新聞"]
 
-# 簡易標籤 + AI 風格摘要
-
+# 分析摘要 + 標籤（保證每則都給摘要）
 def analyze_headline(headline):
     headline_lower = headline.lower()
     stock_keywords = ["fed", "interest rate", "inflation", "nasdaq", "apple", "jobs", "tech", "treasury"]
@@ -71,14 +74,38 @@ def analyze_headline(headline):
 
     if related_to_stock and related_to_gold:
         tag = "📈 美股 & 🪙 黃金"
-        summary = "這則新聞同時關聯利率與避險主題，可能影響黃金與股市走勢。"
+        summary = "同時涉及股市與黃金相關議題，可能對兩者皆造成影響。"
     elif related_to_stock:
         tag = "📈 美股"
-        summary = "這則新聞與美股市場相關，可能影響投資人對政策或企業的預期。"
+        summary = "與股市、利率、就業或企業財報等議題相關。"
     elif related_to_gold:
         tag = "🪙 黃金"
-        summary = "這則新聞與黃金價格相關，可能因市場避險需求升溫或美元變動所致。"
+        summary = "與避險情緒、美元走勢或黃金需求相關。"
     else:
         tag = ""
-        summary = "一般性國際新聞，目前尚無明確金融市場連結。"
-    return
+        summary = "新聞與金融市場無直接關聯，但可觀察背景發展。"
+    return tag, summary
+
+# 顯示 Reuters
+st.subheader("📰 Reuters 國際新聞")
+for i, h in enumerate(get_reuters_headlines(), 1):
+    tag, summary = analyze_headline(h)
+    st.markdown(f"**{i}. {h}**  {tag}")
+    st.markdown(f"📌 {summary}")
+    st.markdown("---")
+
+# 顯示 Bloomberg
+st.subheader("📰 Bloomberg 焦點新聞")
+for i, h in enumerate(get_bloomberg_headlines(), 1):
+    tag, summary = analyze_headline(h)
+    st.markdown(f"**{i}. {h}**  {tag}")
+    st.markdown(f"📌 {summary}")
+    st.markdown("---")
+
+# 顯示 Yahoo Finance
+st.subheader("📰 Yahoo Finance 新聞")
+for i, h in enumerate(get_yahoo_headlines(), 1):
+    tag, summary = analyze_headline(h)
+    st.markdown(f"**{i}. {h}**  {tag}")
+    st.markdown(f"📌 {summary}")
+    st.markdown("---")
