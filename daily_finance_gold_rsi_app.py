@@ -1,4 +1,4 @@
-# global_market_news_app.py（加上新聞內容簡要摘要）
+# global_market_news_app.py（優化摘要顯示格式）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -49,7 +49,7 @@ def get_bloomberg_headlines():
                 not any(x in title.lower() for x in ["photo", "bloomberg", "getty", "video", "/live/"])
             ):
                 full_url = href if href.startswith("http") else f"https://www.bloomberg.com{href}"
-                titles.append({"title": title, "link": full_url, "content": "（無法擷取 Bloomberg 內文）"})
+                titles.append({"title": title, "link": full_url, "content": "（內文無法公開取得）"})
         return titles[:5] if titles else [{"title": "⚠️ Bloomberg 無標題", "link": "", "content": ""}]
     except:
         return [{"title": "⚠️ 無法擷取 Bloomberg 新聞", "link": "", "content": ""}]
@@ -60,11 +60,11 @@ def get_investing_rss():
     try:
         feed = feedparser.parse("https://www.investing.com/rss/news_25.rss")
         entries = feed.entries[:5]
-        return [{"title": e.title, "link": e.link, "content": e.summary if hasattr(e, "summary") else "（無摘要）"} for e in entries]
+        return [{"title": e.title, "link": e.link, "content": e.summary if hasattr(e, "summary") else "（內文摘要缺失）"} for e in entries]
     except:
         return [{"title": "⚠️ 無法擷取 Investing.com RSS", "link": "", "content": ""}]
 
-# 標籤與摘要
+# 標籤與摘要分類
 
 def analyze_headline(headline):
     headline_lower = headline.lower()
@@ -76,16 +76,16 @@ def analyze_headline(headline):
 
     if related_to_stock and related_to_gold:
         tag = "📈 美股 & 🪙 黃金"
-        summary = "同時涉及股市與黃金相關議題，可能對兩者皆造成影響。"
+        summary = "此新聞可能同時影響股市與黃金市場。"
     elif related_to_stock:
         tag = "📈 美股"
-        summary = "與股市、利率、就業或企業財報等議題相關。"
+        summary = "與美股或利率政策、財報有關。"
     elif related_to_gold:
         tag = "🪙 黃金"
-        summary = "與避險情緒、美元走勢或黃金需求相關。"
+        summary = "與黃金價格、避險情緒或美元變化有關。"
     else:
         tag = ""
-        summary = "新聞與金融市場無直接關聯，但可觀察背景發展。"
+        summary = "無直接市場影響，但值得關注其背景變化。"
     return tag, summary
 
 # 顯示新聞清單
@@ -93,12 +93,14 @@ def display_news(source_title, news_list):
     st.subheader(f"📰 {source_title}")
     for i, item in enumerate(news_list, 1):
         tag, market_summary = analyze_headline(item['title'])
-        st.markdown(f"**{i}. [{item['title']}]({item['link']})**  {tag}")
-        st.markdown(f"📌 市場影響摘要：{market_summary}")
-        st.markdown(f"📝 新聞內容摘要：{item['content']}")
+        st.markdown(f"### {i}. [{item['title']}]({item['link']})  {tag}")
+        with st.expander("🧠 市場關聯分析摘要"):
+            st.markdown(f"{market_summary}")
+        with st.expander("📝 新聞內容簡述"):
+            st.markdown(f"{item['content']}")
         st.markdown("---")
 
-# 顯示所有來源
+# 顯示各新聞來源
 display_news("Reuters 國際新聞", get_reuters_headlines())
 display_news("Bloomberg 焦點新聞", get_bloomberg_headlines())
 display_news("Investing.com RSS 新聞", get_investing_rss())
