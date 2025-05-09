@@ -1,7 +1,3 @@
 streamlit
-yfinance
-pandas
-ta
-matplotlib
-beautifulsoup4
 requests
+beautifulsoup4
