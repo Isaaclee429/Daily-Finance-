@@ -1,4 +1,4 @@
-# daily_finance_gold_rsi_app.py（最穩定版）
+# daily_finance_gold_rsi_app.py（最穩定版修正）
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -33,21 +33,22 @@ st.header("💰 黃金 RSI 每日分析 (GC=F)")
 @st.cache_data
 def get_gold_rsi():
     df = yf.download("GC=F", period="30d", interval="1d")
+
     if df.empty or "Close" not in df.columns:
         return pd.DataFrame()
 
-    close_series = df["Close"].dropna()
-    if close_series.empty:
+    try:
+        df = df.dropna(subset=["Close"])
+        rsi_indicator = ta.momentum.RSIIndicator(close=df["Close"])
+        df["RSI"] = rsi_indicator.rsi()
+        df.dropna(subset=["RSI"], inplace=True)
+        return df
+    except Exception as e:
         return pd.DataFrame()
-
-    rsi = ta.momentum.RSIIndicator(close=close_series).rsi()
-    df = df.loc[close_series.index]
-    df["RSI"] = rsi
-    return df.dropna(subset=["RSI"])
 
 gold_df = get_gold_rsi()
 if gold_df.empty:
-    st.error("❌ 無法取得黃金 RSI 資料（來源可能暫時中斷）")
+    st.error("❌ 無法取得黃金 RSI 資料，可能是來源斷線或格式異常。")
     st.stop()
 
 # 顯示當日 RSI 值與價格
