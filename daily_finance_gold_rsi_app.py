@@ -1,14 +1,15 @@
-# global_market_news_app.py（修正 Bloomberg 過濾圖說 + Investing 改用經濟新聞頁）
+# global_market_news_app.py（Investing 改為 RSS + 顯示連結）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
+import feedparser
 from datetime import datetime
 
 st.set_page_config(page_title="全球財經頭條與市場影響快報", layout="wide")
 st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
 st.markdown(f"🗓️ 今日日期：{datetime.today().strftime('%Y-%m-%d')}")
 
-# Reuters 新聞擷取（保持不變）
+# Reuters 新聞擷取
 @st.cache_data
 def get_reuters_headlines():
     try:
@@ -21,12 +22,12 @@ def get_reuters_headlines():
         for article in articles[:5]:
             h = article.find(['h3', 'h2'])
             if h and h.text.strip():
-                headlines.append(h.text.strip())
+                headlines.append({"title": h.text.strip(), "link": url})
         return headlines
     except:
-        return ["⚠️ 無法擷取 Reuters 世界新聞"]
+        return [{"title": "⚠️ 無法擷取 Reuters 世界新聞", "link": ""}]
 
-# 修正版 Bloomberg 新聞擷取（過濾圖說與署名）
+# Bloomberg 新聞擷取
 @st.cache_data
 def get_bloomberg_headlines():
     try:
@@ -44,24 +45,21 @@ def get_bloomberg_headlines():
                 20 < len(title) < 150 and
                 not any(x in title.lower() for x in ["photo", "bloomberg", "getty", "video", "/live/"])
             ):
-                titles.append(title)
-        return titles[:5] if titles else ["⚠️ Bloomberg 無標題"]
+                full_url = href if href.startswith("http") else f"https://www.bloomberg.com{href}"
+                titles.append({"title": title, "link": full_url})
+        return titles[:5] if titles else [{"title": "⚠️ Bloomberg 無標題", "link": ""}]
     except:
-        return ["⚠️ 無法擷取 Bloomberg 新聞"]
+        return [{"title": "⚠️ 無法擷取 Bloomberg 新聞", "link": ""}]
 
-# 改版 Investing.com 經濟新聞擷取（非動態頁）
+# Investing RSS 擷取
 @st.cache_data
-def get_investing_headlines():
+def get_investing_rss():
     try:
-        url = "https://www.investing.com/news/economy"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        articles = soup.select(".textDiv")
-        headlines = [a.get_text(strip=True) for a in articles if 20 < len(a.get_text(strip=True)) < 150]
-        return headlines[:5] if headlines else ["⚠️ Investing 無標題"]
+        feed = feedparser.parse("https://www.investing.com/rss/news_25.rss")
+        entries = feed.entries[:5]
+        return [{"title": e.title, "link": e.link} for e in entries]
     except:
-        return ["⚠️ 無法擷取 Investing.com 新聞"]
+        return [{"title": "⚠️ 無法擷取 Investing.com RSS", "link": ""}]
 
 # 分析標籤與摘要
 
@@ -87,26 +85,17 @@ def analyze_headline(headline):
         summary = "新聞與金融市場無直接關聯，但可觀察背景發展。"
     return tag, summary
 
-# 顯示 Reuters
-st.subheader("📰 Reuters 國際新聞")
-for i, h in enumerate(get_reuters_headlines(), 1):
-    tag, summary = analyze_headline(h)
-    st.markdown(f"**{i}. {h}**  {tag}")
-    st.markdown(f"📌 {summary}")
-    st.markdown("---")
+# 顯示區塊
 
-# 顯示 Bloomberg
-st.subheader("📰 Bloomberg 焦點新聞")
-for i, h in enumerate(get_bloomberg_headlines(), 1):
-    tag, summary = analyze_headline(h)
-    st.markdown(f"**{i}. {h}**  {tag}")
-    st.markdown(f"📌 {summary}")
-    st.markdown("---")
+def display_news(source_title, news_list):
+    st.subheader(f"📰 {source_title}")
+    for i, item in enumerate(news_list, 1):
+        tag, summary = analyze_headline(item['title'])
+        st.markdown(f"**{i}. [{item['title']}]({item['link']})**  {tag}")
+        st.markdown(f"📌 {summary}")
+        st.markdown("---")
 
-# 顯示 Investing.com（修正後穩定版）
-st.subheader("📰 Investing.com 經濟新聞")
-for i, h in enumerate(get_investing_headlines(), 1):
-    tag, summary = analyze_headline(h)
-    st.markdown(f"**{i}. {h}**  {tag}")
-    st.markdown(f"📌 {summary}")
-    st.markdown("---")
+# 顯示各來源新聞
+display_news("Reuters 國際新聞", get_reuters_headlines())
+display_news("Bloomberg 焦點新聞", get_bloomberg_headlines())
+display_news("Investing.com RSS 新聞", get_investing_rss())
