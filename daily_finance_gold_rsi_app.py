@@ -1,4 +1,4 @@
-# global_market_news_app.py（Yahoo + Bloomberg 修正後，保證摘要顯示）
+# global_market_news_app.py（Yahoo 移除 + 改抓 Investing.com）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +8,7 @@ st.set_page_config(page_title="全球財經頭條與市場影響快報", layout=
 st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
 st.markdown(f"🗓️ 今日日期：{datetime.today().strftime('%Y-%m-%d')}")
 
-# Reuters 新聞擷取（保持不變）
+# Reuters 新聞擷取
 @st.cache_data
 def get_reuters_headlines():
     try:
@@ -26,7 +26,7 @@ def get_reuters_headlines():
     except:
         return ["⚠️ 無法擷取 Reuters 世界新聞"]
 
-# Bloomberg 新聞擷取（修正條件）
+# Bloomberg 新聞擷取
 @st.cache_data
 def get_bloomberg_headlines():
     try:
@@ -45,25 +45,22 @@ def get_bloomberg_headlines():
     except:
         return ["⚠️ 無法擷取 Bloomberg 新聞"]
 
-# Yahoo Finance 新聞擷取（重寫選擇條件）
+# Investing.com 新聞擷取
 @st.cache_data
-def get_yahoo_headlines():
+def get_investing_headlines():
     try:
-        url = "https://finance.yahoo.com"
+        url = "https://www.investing.com/news/"
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        items = soup.select("a.js-content-viewer")
-        headlines = []
-        for item in items:
-            text = item.get_text().strip()
-            if 20 < len(text) < 150:
-                headlines.append(text)
-        return headlines[:5] if headlines else ["⚠️ Yahoo 無標題"]
+        articles = soup.select(".textDiv")
+        headlines = [a.get_text(strip=True) for a in articles if 20 < len(a.get_text(strip=True)) < 150]
+        return headlines[:5] if headlines else ["⚠️ Investing 無標題"]
     except:
-        return ["⚠️ 無法擷取 Yahoo Finance 新聞"]
+        return ["⚠️ 無法擷取 Investing.com 新聞"]
 
-# 分析摘要 + 標籤（保證每則都給摘要）
+# 標籤與摘要生成
+
 def analyze_headline(headline):
     headline_lower = headline.lower()
     stock_keywords = ["fed", "interest rate", "inflation", "nasdaq", "apple", "jobs", "tech", "treasury"]
@@ -102,9 +99,9 @@ for i, h in enumerate(get_bloomberg_headlines(), 1):
     st.markdown(f"📌 {summary}")
     st.markdown("---")
 
-# 顯示 Yahoo Finance
-st.subheader("📰 Yahoo Finance 新聞")
-for i, h in enumerate(get_yahoo_headlines(), 1):
+# 顯示 Investing.com
+st.subheader("📰 Investing.com 新聞")
+for i, h in enumerate(get_investing_headlines(), 1):
     tag, summary = analyze_headline(h)
     st.markdown(f"**{i}. {h}**  {tag}")
     st.markdown(f"📌 {summary}")
