@@ -1,4 +1,4 @@
-# global_market_news_app.py
+# global_market_news_app.py（加摘要版）
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -18,8 +18,8 @@ def get_reuters_headlines():
     except:
         return ["無法擷取 Reuters 世界新聞"]
 
-# 關鍵字判斷是否與美股或黃金有關
-def categorize_headline(headline):
+# 分析關聯並生成摘要
+def analyze_headline(headline):
     headline_lower = headline.lower()
     stock_keywords = ["fed", "interest rate", "inflation", "nasdaq", "apple", "jobs report", "tech", "treasury"]
     gold_keywords = ["gold", "precious metal", "usd", "dollar", "geopolitical", "china", "safe haven", "central bank"]
@@ -27,26 +27,26 @@ def categorize_headline(headline):
     related_to_stock = any(keyword in headline_lower for keyword in stock_keywords)
     related_to_gold = any(keyword in headline_lower for keyword in gold_keywords)
 
-    tag = ""
     if related_to_stock and related_to_gold:
         tag = "📈 美股 & 🪙 黃金"
+        summary = "可能同時影響美股與黃金市場，與利率或避險需求相關。"
     elif related_to_stock:
         tag = "📈 美股"
+        summary = "與美股相關，可能涉及利率政策或企業財報。"
     elif related_to_gold:
         tag = "🪙 黃金"
+        summary = "與黃金價格相關，可能受到避險情緒或美元波動影響。"
     else:
-        tag = ""  # 一般新聞
-    return tag
+        tag = ""
+        summary = "一般性新聞，無明顯市場關聯。"
+    return tag, summary
 
 # 顯示區塊
-st.subheader("📰 全球重要新聞頭條 (來源：Reuters World)")
+st.subheader("📰 今日重點新聞（來自 Reuters World）")
 headlines = get_reuters_headlines()
 
 for i, h in enumerate(headlines, 1):
-    tag = categorize_headline(h)
-    if tag:
-        st.markdown(f"**{i}.** {h} — {tag}")
-    else:
-        st.markdown(f"{i}. {h}")
-
-st.info("🔍 以上標題會依內容自動標註與美股/黃金相關的新聞。後續可加入 AI 自動摘要與 Email 報告功能。")
+    tag, summary = analyze_headline(h)
+    st.markdown(f"**{i}. {h}**  {tag if tag else ''}")
+    st.markdown(f"📌 {summary}")
+    st.markdown("---")
