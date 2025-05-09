@@ -1,58 +1,52 @@
-# daily_finance_news_app.py（多來源新聞擴充版）
+# global_market_news_app.py
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="每日財經新聞快報", layout="wide")
-st.title("📊 每日財經新聞快報")
+st.set_page_config(page_title="全球財經頭條與市場影響快報", layout="wide")
+st.title("🌍 全球財經頭條 + 美股與黃金市場影響分析")
 
-# 📰 擷取 Reuters 財經新聞
+# 🌐 抓取 Reuters 頭條
 @st.cache_data
-def get_reuters_news():
+def get_reuters_headlines():
     try:
-        url = "https://www.reuters.com/finance/"
+        url = "https://www.reuters.com/world/"
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        headlines = soup.find_all('h3')[:5]
+        headlines = soup.find_all(['h2', 'h3'])[:10]
         return [h.get_text().strip() for h in headlines if h.get_text().strip()]
     except:
-        return ["無法擷取 Reuters 新聞"]
+        return ["無法擷取 Reuters 世界新聞"]
 
-# 📰 擷取 Bloomberg 財經新聞（首頁標題）
-@st.cache_data
-def get_bloomberg_news():
-    try:
-        url = "https://www.bloomberg.com"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        headlines = soup.find_all('h3')[:5]
-        return [h.get_text().strip() for h in headlines if h.get_text().strip()]
-    except:
-        return ["無法擷取 Bloomberg 新聞"]
+# 關鍵字判斷是否與美股或黃金有關
+def categorize_headline(headline):
+    headline_lower = headline.lower()
+    stock_keywords = ["fed", "interest rate", "inflation", "nasdaq", "apple", "jobs report", "tech", "treasury"]
+    gold_keywords = ["gold", "precious metal", "usd", "dollar", "geopolitical", "china", "safe haven", "central bank"]
 
-# 📰 擷取 Yahoo Finance 頭條新聞
-@st.cache_data
-def get_yahoo_news():
-    try:
-        url = "https://finance.yahoo.com"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        headlines = soup.find_all('h3')[:5]
-        return [h.get_text().strip() for h in headlines if h.get_text().strip()]
-    except:
-        return ["無法擷取 Yahoo Finance 新聞"]
+    related_to_stock = any(keyword in headline_lower for keyword in stock_keywords)
+    related_to_gold = any(keyword in headline_lower for keyword in gold_keywords)
+
+    tag = ""
+    if related_to_stock and related_to_gold:
+        tag = "📈 美股 & 🪙 黃金"
+    elif related_to_stock:
+        tag = "📈 美股"
+    elif related_to_gold:
+        tag = "🪙 黃金"
+    else:
+        tag = ""  # 一般新聞
+    return tag
 
 # 顯示區塊
-st.header("📰 Reuters 財經新聞")
-for i, news in enumerate(get_reuters_news(), 1):
-    st.markdown(f"**{i}.** {news}")
+st.subheader("📰 全球重要新聞頭條 (來源：Reuters World)")
+headlines = get_reuters_headlines()
 
-st.header("📰 Bloomberg 財經新聞")
-for i, news in enumerate(get_bloomberg_news(), 1):
-    st.markdown(f"**{i}.** {news}")
+for i, h in enumerate(headlines, 1):
+    tag = categorize_headline(h)
+    if tag:
+        st.markdown(f"**{i}.** {h} — {tag}")
+    else:
+        st.markdown(f"{i}. {h}")
 
-st.header("📰 Yahoo Finance 新聞")
-for i, news in enumerate(get_yahoo_news(), 1):
-    st.markdown(f"**{i}.** {news}")
+st.info("🔍 以上標題會依內容自動標註與美股/黃金相關的新聞。後續可加入 AI 自動摘要與 Email 報告功能。")
